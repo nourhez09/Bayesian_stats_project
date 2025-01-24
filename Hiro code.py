@@ -5,98 +5,82 @@ Created on Fri Jan 24 23:02:37 2025
 
 @author: hiro
 """
-
 import numpy as np
-from scipy.stats import norm, multivariate_normal, laplace
-from scipy.optimize import root_scalar
-import matplotlib.pyplot as plt
-import pandas as pd
-import arviz as az
+from scipy.stats import invgauss, gamma, norm
 
-def generate_simulation_data(sim_i):
-    np.random.seed(12345)
-    if sim_i == 1:
-        n_train, n_validation, n_test, p = 20, 20, 200, 8
-        beta_true = np.array([3, 1.5, 0, 0, 2, 0, 0, 0])
-    elif sim_i == 2:
-        n_train, n_validation, n_test, p = 20, 20, 200, 8
-        beta_true = np.full(p, 0.85)
-    elif sim_i == 3:
-        n_train, n_validation, n_test, p = 20, 20, 200, 8
-        beta_true = np.array([5, 0, 0, 0, 0, 0, 0, 0])
-    elif sim_i == 4:
-        n_train, n_validation, n_test, p = 100, 100, 400, 9
-        beta_true = np.array([1, 1, 1, 1, 0, 0, 0, 0, 0])
-    elif sim_i == 5:
-        n_train, n_validation, n_test, p = 20, 20, 400, 30
-        beta_true = np.concatenate([np.full(10, 3), np.zeros(10), np.full(10, 3)])
-    elif sim_i == 6:
-        n_train, n_validation, n_test, p = 20, 20, 400, 15
-        beta_true = np.array([-1.2, 1.8, 0, 0, 0, 0, 0.5, 1, 0, 0, 0, 0, 1, 1, 0])
-    else:
-        raise ValueError("Invalid simulation index")
-    
-    rho = 0.5
-    x_sigma = np.array([[rho ** abs(i - j) for j in range(p)] for i in range(p)])
-    x_train = multivariate_normal.rvs(mean=np.zeros(p), cov=x_sigma, size=n_train)
-    x_validation = multivariate_normal.rvs(mean=np.zeros(p), cov=x_sigma, size=n_validation)
-    x_test = multivariate_normal.rvs(mean=np.zeros(p), cov=x_sigma, size=n_test)
-    
-    x = np.vstack([x_train, x_validation, x_test])
-    return x, beta_true
+def qr_lasso(x, y, theta=0.5, n_sampler=13000, n_burn=3000, thin=20):
+    n, p = x.shape
+    xi1 = (1 - 2 * theta) / (theta * (1 - theta))
+    xi2 = np.sqrt(2 / (theta * (1 - theta)))
 
-def bootstrap_median(samples, n_bootstrap=500):
-    boot_medians = np.array([np.median(np.random.choice(samples, size=len(samples), replace=True)) for _ in range(n_bootstrap)])
-    return np.sqrt(np.var(boot_medians))
+    # Priors
+    a, b, c, d = 1e-1, 1e-1, 1e-1, 1e-1
 
-def test_bootstrap():
-    samples = np.random.randn(1000)
-    sd_estimate = bootstrap_median(samples)
-    assert sd_estimate > 0, "Standard deviation estimate should be positive"
-    print("Bootstrap test passed")
+    # Initialization
+    beta_c = np.ones(p)
+    tz_c = np.ones(n)
+    s_c = np.ones(p)
+    tau_c = 1
+    eta2_c = 1
 
-test_bootstrap()
+    # Storing sampled values
+    beta_p = np.zeros((n_sampler, p))
+    tz_p = np.zeros((n_sampler, n))
+    tau_p = np.zeros(n_sampler)
+    eta2_p = np.zeros(n_sampler)
 
-def qr_lasso(x, y, theta, n_sampler, thin):
-    np.random.seed(12345)
-    beta_samples = np.random.randn(n_sampler // thin, x.shape[1])
-    tau_samples = np.random.gamma(1, 1, n_sampler // thin)
-    tz_samples = np.random.gamma(1, 1, (n_sampler // thin, x.shape[0]))
-    return {"beta": beta_samples, "tau": tau_samples, "tz": tz_samples}
+    for iter in range(n_sampler):
+        if iter % 1000 == 0:
+            print(f"This is step {iter}")
 
-def analyze_results(results):
-    tau_z = np.column_stack([results['tz'], results['tau']])
-    plt.figure(figsize=(10, 6))
-    plt.plot(tau_z[:, 14], label='v[15]')
-    plt.plot(tau_z[:, 16], label='v[17]')
-    plt.plot(tau_z[:, 24], label='v[25]')
-    plt.plot(tau_z[:, 34], label='v[35]')
-    plt.legend()
-    plt.show()
+        # Update tz
+        temp_lambda = xi1 ** 2 * tau_c / (xi2 ** 2) + 2 * tau_c
+        temp_nu = np.sqrt(temp_lambda * xi2 ** 2 / (tau_c * (y - x @ beta_c) ** 2))
+        temp_tz = invgauss.rvs(temp_lambda / temp_nu, scale=temp_nu)
+        tz_c[temp_tz > 0] = 1 / temp_tz[temp_tz > 0]
 
-def test_generate_simulation_data():
-    x, beta_true = generate_simulation_data(1)
-    assert x.shape == (240, 8), "Incorrect shape for simulation data"
-    assert len(beta_true) == 8, "Incorrect beta length"
-    print("Simulation data generation test passed")
+        # Update s
+        temp_lambda = eta2_c
+        temp_nu = np.sqrt(temp_lambda / beta_c ** 2)
+        temp_s = invgauss.rvs(temp_lambda / temp_nu, scale=temp_nu)
+        s_c[temp_s > 0] = 1 / temp_s[temp_s > 0]
 
-def test_qr_lasso():
-    x, beta_true = generate_simulation_data(1)
-    y = x @ beta_true + np.random.normal(0, 1, x.shape[0])
-    result = qr_lasso(x, y, theta=0.5, n_sampler=1000, thin=10)
-    assert result['beta'].shape[0] == 100, "Incorrect number of beta samples"
-    assert result['tau'].shape[0] == 100, "Incorrect number of tau samples"
-    analyze_results(result)
-    print("QR Lasso test passed")
+        # Update beta
+        for k in range(p):
+            temp_var = 1 / (np.sum(x[:, k] ** 2 * tau_c / (xi2 ** 2 * tz_c)) + 1 / s_c[k])
+            temp_mean = temp_var * np.sum(x[:, k] * (y - xi1 * tz_c - x @ beta_c + x[:, k] * beta_c[k]) * tau_c / (xi2 ** 2 * tz_c))
+            beta_c[k] = norm.rvs(temp_mean, np.sqrt(temp_var))
 
-test_generate_simulation_data()
-test_qr_lasso()
+        # Update tau
+        temp_shape = a + 3 / 2 * n
+        temp_rate = np.sum((y - x @ beta_c - xi1 * tz_c) ** 2 / (2 * xi2 ** 2 * tz_c) + tz_c) + b
+        tau_c = gamma.rvs(temp_shape, scale=1 / temp_rate)
 
+        # Update eta2
+        temp_shape = p + c
+        temp_rate = np.sum(s_c) / 2 + d
+        eta2_c = gamma.rvs(temp_shape, scale=1 / temp_rate)
 
+        beta_p[iter, :] = beta_c
+        tz_p[iter, :] = tz_c
+        tau_p[iter] = tau_c
+        eta2_p[iter] = eta2_c
+
+    temp_indices = np.arange(n_burn, n_sampler, thin)
+    result = {
+        'beta': beta_p[temp_indices, :],
+        'tz': tz_p[temp_indices, :],
+        'tau': tau_p[temp_indices],
+        'eta2': eta2_p[temp_indices]
+    }
+    return result
+
+# Example test to validate the function
 if __name__ == "__main__":
-    x, beta_true = generate_simulation_data(1)
-    y = x @ beta_true + np.random.normal(0, 1, x.shape[0])
-    result = qr_lasso(x, y, theta=0.5, n_sampler=1000, thin=10)
-    analyze_results(result)
-    print("Simulation completed successfully.")
+    np.random.seed(42)
+    x_test = np.random.normal(0, 1, (50, 5))
+    beta_true = np.array([1.5, -2.0, 3.0, 0.0, 0.5])
+    y_test = x_test @ beta_true + np.random.normal(0, 1, 50)
+    result = qr_lasso(x_test, y_test, theta=0.5, n_sampler=500, n_burn=100, thin=10)
+    print("Estimated beta:", np.mean(result['beta'], axis=0))
 
