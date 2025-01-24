@@ -1,14 +1,8 @@
 import numpy as np
-from scipy.stats import geninvgauss, norm, gamma, expon, laplace, invgauss
-from numpy.linalg import solve
+from scipy.stats import geninvgauss, norm, gamma, expon, laplace
 from metrics import calculate_mmad
 
-
-import numpy as np
-from scipy.stats import gamma, expon, laplace, norm
-from scipy.stats import geninvgauss
-
-def gibbs_sampler(X, y, theta, n_iter=1000, a=0, b=0, c=0, d=0):
+def gibbs_sampler(X, y, theta, n_iter=1000, a=1, b=1, c=1, d=1):
     """
     Gibbs sampler for Bayesian Lasso Quantile Regression.
 
@@ -42,12 +36,44 @@ def gibbs_sampler(X, y, theta, n_iter=1000, a=0, b=0, c=0, d=0):
         "s": np.zeros((n_iter, p))
     }
 
+
+    # Sampling functions
+    def sample_gamma(shape, scale, size=1):
+        return np.random.gamma(shape, scale, size=size)
+
+    def sample_normal(mean, std, size=1):
+        return np.random.normal(mean, std, size=size)
+
+    # def sample_inverse_gamma(shape, scale, size=1):
+    #     return 1 / np.random.gamma(shape, 1 / scale, size=size)
+
+    def sample_exponential(rate, size=1):
+        return np.random.exponential(1 / rate, size=size)
+
+    # Prior sampling
+    # Sample tau and eta2
+    eta2 = sample_gamma(c, 1 / d)  # Sample eta2 from Gamma
+    tau = sample_gamma(a, 1 / b)  # Sample tau from Gamma
+
+    # Sample v_i for all i from Exponential
+    v = sample_exponential(tau, size=n)
+
+    # Sample s_k for all k from Inverse Gamma
+    # s = sample_inverse_gamma(0.5, eta2 / 2, size=p)
+    s=expon.rvs(scale=2 / eta2, size=p)
+
+    # Sample beta_k for all k from Normal
+    beta_mean = np.zeros(p)  # Zero mean for beta as given
+    beta_var = 1 / s  # Variance is 1/s for each beta_k
+    beta = sample_normal(beta_mean, np.sqrt(beta_var), size=p)
+
     # Initial values
-    samples["v"][0, :] = expon.rvs(scale=1, size=n)  # Exponential prior for v
-    samples["s"][0, :] = gamma.rvs(a=1, scale=1, size=p)  # Gamma prior for s
-    samples["tau"][0] = gamma.rvs(a=1, scale=1)  # Gamma prior for tau
-    samples["eta2"][0] = gamma.rvs(a=1, scale=1)  # Gamma prior for eta^2
-    samples["beta"][0, :] = laplace.rvs(loc=0, scale=1, size=p)  # Laplace prior for beta
+    samples["v"][0, :] = v  # Exponential prior for v
+    samples["s"][0, :] = s  # Gamma prior for s
+    samples["tau"][0] = tau # Gamma prior for tau
+    samples["eta2"][0] = eta2  # Gamma prior for eta^2
+    samples["beta"][0, :] = beta # Laplace prior for beta
+
 
     # Gibbs sampling
     for it in range(1, n_iter):
@@ -115,7 +141,7 @@ if __name__ == "__main__":
     # np.random.seed(42)
 
     from scipy.stats import multivariate_normal     
-
+    # this should account for simulation 1
     n, p = 100, 9
 
         # Given standard deviation
@@ -136,24 +162,18 @@ if __name__ == "__main__":
     iterations=[]
     for i in range(2):
         result = gibbs_sampler(X, y,theta, n_iter=1000)
-        iterations.append(result["beta"][-1])
-    print('mmad is ', calculate_mmad(iterations, X, y))
-
-
-
-
-
-
-
-
-# # Number of rows and columns (dimension of X)
-# n = 5  # for example, adjust as needed
-
-# # Generate the covariance matrix Sigma
-# Sigma = create_covariance_matrix(n)
-
-# # Generate X where each row is drawn from N(0, Sigma)
-# X = np.random.multivariate_normal(mean=np.zeros(n), cov=Sigma, size=n)
+        # iterations.append(dict(list(result.items())[-1]))
+        dernier_element = {
+        "beta": result["beta"][-1, :],  # Dernière ligne pour "beta"
+        "tau": result["tau"][-1],       # Dernière valeur pour "tau"
+        "eta2": result["eta2"][-1],     # Dernière valeur pour "eta2"
+        "v": result["v"][-1, :],        # Dernière ligne pour "v"
+        "s": result["s"][-1, :],        # Dernière ligne pour "s"
+    }
+    
+        # Ajouter ce dictionnaire dans la liste 'iterations'
+        iterations.append(dernier_element)
+    print('mmad is ', calculate_mmad(iterations, X, y, theta))
 
 
 

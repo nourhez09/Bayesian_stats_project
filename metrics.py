@@ -1,6 +1,6 @@
 import numpy as np
 
-def calculate_mmad(posterior_samples, x, y_true):
+def calculate_mmad(posterior_samples, x, y_true, theta):
     """
     Calculate the Median of Mean Absolute Deviations (MMAD) from a given posterior sample.
     
@@ -16,11 +16,14 @@ def calculate_mmad(posterior_samples, x, y_true):
     
     # Initialize an array to store the MAD values for each sample
     mad_values = []
-    
+        # Quantile-related constants
+    ksi_1 = (1 - 2 * theta) / (theta * (1 - theta))
+    ksi_2 = np.sqrt(2 / (theta * (1 - theta)))
     # Loop over each posterior sample
     for sample in posterior_samples:
         # Calculate the predicted values for the current sample (x * sample)
-        y_pred = np.dot(x, sample)
+        z = np.random.normal(loc=0, scale=1, size=x.shape[0])
+        y_pred = np.dot(x, sample['beta']) +ksi_1*sample['v']+ ksi_2*np.sqrt(sample['tau'])*np.dot(np.sqrt(sample['v']), z)
         
         # Compute the residuals (difference between true values and predicted values)
         residuals = y_true - y_pred
