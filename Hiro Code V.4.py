@@ -10,6 +10,7 @@
 # Modification 8: I am changing the order of 4. and 5. because 4 uses functions from 5
 # Modification 9: probably 5. does not matter, it was defined on 1.
 # Modification 10: Creating 4.1., where it does the non-iid version. Probably not that important, it was not done in the R code, just imported...
+# Modification 11: Changing the order of 6. and 7. it has a function we need.
 
 # Comment 1: The group-lasso approach is only approximate. A full Bayesian group-lasso might require specialized “multivariate normal” draws.
 
