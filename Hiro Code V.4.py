@@ -8,7 +8,7 @@
 # Modification 6: 1. and 2. were checked and I added the return to be x, beta_true
 # Modification 7: 3. checked
 # Modification 8: I am changing the order of 4. and 5. because 4 uses functions from 5
-
+# Modification 9: Changing the generate_data
 
 # Comment 1: The group-lasso approach is only approximate. A full Bayesian group-lasso might require specialized “multivariate normal” draws.
 
@@ -978,7 +978,7 @@ n_sim = 50
 # ---------------------------------
 def generate_data(sim_i):
     np.random.seed(12345)
-    if sim_i == 2:
+    if sim_i == 1:
         for distr in ["normal", "normalmix", "laplace", "laplacemix"]:
             for theta in [0.1, 0.3, 0.5]:
                 for sim in range(1, n_sim + 1):
@@ -998,6 +998,73 @@ def generate_data(sim_i):
                         y_train = x_train @ np.array([3, 1.5, 0, 0, 2, 0, 0, 0]) + 3 * np.random.normal(mean, 1, 20)
                         y_validation = x_validation @ np.array([3, 1.5, 0, 0, 2, 0, 0, 0]) + 3 * np.random.normal(mean, 1, 20)
                         y_test = x_test @ np.array([3, 1.5, 0, 0, 2, 0, 0, 0]) + 3 * np.random.normal(mean, 1, 200)
+
+                    # Center the response data
+                    y_train -= np.mean(y_train)
+                    y_validation -= np.mean(y_validation)
+                    y_test -= np.mean(y_test)
+
+                    y = np.concatenate((y_train, y_validation, y_test))
+
+                    # Save the generated data
+                    save_path = f"sim_data/sim_{sim_i}/{distr}_theta_{theta}_sim_{sim}.pkl"
+                    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                    joblib.dump((x_train, x_validation, x_test, x, y_train, y_validation, y_test, y), save_path)
+
+    
+    if sim_i == 2:
+        for distr in ["normal", "normalmix", "laplace", "laplacemix"]:
+            for theta in [0.1, 0.3, 0.5]:
+                for sim in range(1, n_sim + 1):
+                    p = 8
+                    rho = 0.5
+                    x_sigma = np.array([[rho ** abs(i - j) for j in range(p)] for i in range(p)])
+
+                    x_train = np.random.multivariate_normal(np.zeros(p), x_sigma, size=20)
+                    x_validation = np.random.multivariate_normal(np.zeros(p), x_sigma, size=20)
+                    x_test = np.random.multivariate_normal(np.zeros(p), x_sigma, size=200)
+
+                    x = np.vstack((x_train, x_validation, x_test))
+
+                    # Generate response variable
+                    if distr == "normal":
+                        mean = -norm.ppf(theta)
+                        y_train = x_train @ np.array([0.85] * 8)+ 3 * np.random.normal(mean, 1, 20)
+                        y_validation = x_validation @ np.array([0.85] * 8) + 3 * np.random.normal(mean, 1, 20)
+                        y_test = x_test @ np.array([0.85] * 8) + 3 * np.random.normal(mean, 1, 200)
+
+                    # Center the response data
+                    y_train -= np.mean(y_train)
+                    y_validation -= np.mean(y_validation)
+                    y_test -= np.mean(y_test)
+
+                    y = np.concatenate((y_train, y_validation, y_test))
+
+                    # Save the generated data
+                    save_path = f"sim_data/sim_{sim_i}/{distr}_theta_{theta}_sim_{sim}.pkl"
+                    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                    joblib.dump((x_train, x_validation, x_test, x, y_train, y_validation, y_test, y), save_path)
+
+    if sim_i == 3:
+        for distr in ["normal", "normalmix", "laplace", "laplacemix"]:
+            for theta in [0.1, 0.3, 0.5]:
+                for sim in range(1, n_sim + 1):
+                    p = 8
+                    rho = 0.5
+                    x_sigma = np.array([[rho ** abs(i - j) for j in range(p)] for i in range(p)])
+
+                    x_train = np.random.multivariate_normal(np.zeros(p), x_sigma, size=20)
+                    x_validation = np.random.multivariate_normal(np.zeros(p), x_sigma, size=20)
+                    x_test = np.random.multivariate_normal(np.zeros(p), x_sigma, size=200)
+
+                    x = np.vstack((x_train, x_validation, x_test))
+
+                    # Generate response variable
+                    if distr == "normal":
+                        mean = -norm.ppf(theta)
+                        y_train = x_train @ np.array([5, 0, 0, 0, 0, 0, 0, 0])+ 3 * np.random.normal(mean, 1, 20)
+                        y_validation = x_validation @ np.array([5, 0, 0, 0, 0, 0, 0, 0]) + 3 * np.random.normal(mean, 1, 20)
+                        y_test = x_test @ np.array([5, 0, 0, 0, 0, 0, 0, 0]) + 3 * np.random.normal(mean, 1, 200)
 
                     # Center the response data
                     y_train -= np.mean(y_train)
