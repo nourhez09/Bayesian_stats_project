@@ -7,6 +7,8 @@
 # Modification 5: Our examples are now based on simulation 1
 # Modification 6: 1. and 2. were checked and I added the return to be x, beta_true
 # Modification 7: 3. checked
+# Modification 8: I am changing the order of 4. and 5. because 4 uses functions from 5
+
 
 # Comment 1: The group-lasso approach is only approximate. A full Bayesian group-lasso might require specialized “multivariate normal” draws.
 
@@ -758,74 +760,6 @@ def generate_response(x_train, x_validation, x_test, beta_true, sigma_true, sigm
 
 ################################################################################################################
 # %%
-# 4. [SIM.IID.R]
-
-import numpy as np
-import joblib  # For loading/saving simulation data
-from sklearn.preprocessing import StandardScaler
-from scipy.stats import norm
-import pymc as pm  # Replacing pymc3 with PyMC
-
-def sim_iid(method, n_sim, sim_i, distr, theta, x_train, x_validation, x_test, y_train, y_validation, beta_true):
-    results = {}
-
-    if method == "qr_lasso":
-        beta_qrl, betasd_qrl, presid_qrl, mad_qrl = [], [], [], []
-        for sim in range(1, n_sim + 1):
-            print(f"This is simulation number {sim}")
-            
-            # Load simulation data
-            data = joblib.load(f"sim_data/sim_{sim_i}/{distr},theta={theta},sim{sim}.pkl")
-            x_train, x_validation, x_test, y_train, y_validation, beta_true = data
-
-            # Preprocess data
-            scaler = StandardScaler()
-            x_scaled = scaler.fit_transform(np.vstack((x_train, x_validation)))
-            y_scaled = np.concatenate((y_train, y_validation)) - np.mean(np.concatenate((y_train, y_validation)))
-
-            # Run QR Lasso model (dummy example call)
-            with pm.Model() as model:
-                beta = pm.Normal("beta", mu=0, sigma=10, shape=x_scaled.shape[1])
-                sigma = pm.HalfCauchy("sigma", beta_true.std())
-                mu = pm.math.dot(x_scaled, beta)
-                y_obs = pm.Normal("y_obs", mu=mu, sigma=sigma, observed=y_scaled)
-                
-                trace = pm.sample(2000, return_inferencedata=True)
-
-            # Process results
-            beta_est = trace.posterior["beta"].mean(dim=("chain", "draw")).values
-            beta_qrl.append(beta_est)
-            betasd_qrl.append(trace.posterior["beta"].std(dim=("chain", "draw")).values)
-            presid_qrl.append(np.mean((beta_true - beta_est) ** 2))
-            mad_qrl.append(np.mean(np.abs(x_test @ (beta_true - beta_est))))
-
-        # Save results
-        joblib.dump((beta_qrl, betasd_qrl, presid_qrl, mad_qrl), f"sim_data/sim_{sim_i}/{distr},theta={theta}qrl.pkl")
-
-    elif method == "lasso":
-        beta_lasso, lambda_lasso, presid_lasso, mad_lasso = [], [], [], []
-        for sim in range(1, n_sim + 1):
-            print(f"This is simulation number {sim}")
-
-            # Load data
-            data = joblib.load(f"sim_data/sim_{sim_i}/{distr},theta={theta},sim{sim}.pkl")
-            x_train, x_validation, x_test, y_train, y_validation, beta_true = data
-
-            # Fit LASSO model (example with sklearn)
-            from sklearn.linear_model import LassoCV
-            lasso = LassoCV(cv=5).fit(x_train, y_train)
-
-            beta_lasso.append(lasso.coef_)
-            lambda_lasso.append(lasso.alpha_)
-            presid_lasso.append(np.mean((beta_true - lasso.coef_) ** 2))
-            mad_lasso.append(np.mean(np.abs(x_test @ (beta_true - lasso.coef_))))
-
-        joblib.dump((beta_lasso, lambda_lasso, presid_lasso, mad_lasso), f"sim_data/sim_{sim_i}/{distr},theta={theta}lasso.pkl")
-
-
-
-################################################################################################################
-# %%
 # 5. [QRL1_V2.R]
 
 import numpy as np
@@ -938,6 +872,76 @@ def predQReg(newY, newX, g):
         resL1.append(np.mean(np.abs(res)))
         resL2.append(np.sqrt(np.mean(res ** 2)))
     return {"resL1": resL1, "resL2": resL2}
+
+
+################################################################################################################
+# %%
+# 4. [SIM.IID.R]
+
+import numpy as np
+import joblib  # For loading/saving simulation data
+from sklearn.preprocessing import StandardScaler
+from scipy.stats import norm
+import pymc as pm  # Replacing pymc3 with PyMC
+
+def sim_iid(method, n_sim, sim_i, distr, theta, x_train, x_validation, x_test, y_train, y_validation, beta_true):
+    results = {}
+
+    if method == "qr_lasso":
+        beta_qrl, betasd_qrl, presid_qrl, mad_qrl = [], [], [], []
+        for sim in range(1, n_sim + 1):
+            print(f"This is simulation number {sim}")
+            
+            # Load simulation data
+            data = joblib.load(f"sim_data/sim_{sim_i}/{distr},theta={theta},sim{sim}.pkl")
+            x_train, x_validation, x_test, y_train, y_validation, beta_true = data
+
+            # Preprocess data
+            scaler = StandardScaler()
+            x_scaled = scaler.fit_transform(np.vstack((x_train, x_validation)))
+            y_scaled = np.concatenate((y_train, y_validation)) - np.mean(np.concatenate((y_train, y_validation)))
+
+            # Run QR Lasso model (dummy example call)
+            with pm.Model() as model:
+                beta = pm.Normal("beta", mu=0, sigma=10, shape=x_scaled.shape[1])
+                sigma = pm.HalfCauchy("sigma", beta_true.std())
+                mu = pm.math.dot(x_scaled, beta)
+                y_obs = pm.Normal("y_obs", mu=mu, sigma=sigma, observed=y_scaled)
+                
+                trace = pm.sample(2000, return_inferencedata=True)
+
+            # Process results
+            beta_est = trace.posterior["beta"].mean(dim=("chain", "draw")).values
+            beta_qrl.append(beta_est)
+            betasd_qrl.append(trace.posterior["beta"].std(dim=("chain", "draw")).values)
+            presid_qrl.append(np.mean((beta_true - beta_est) ** 2))
+            mad_qrl.append(np.mean(np.abs(x_test @ (beta_true - beta_est))))
+
+        # Save results
+        joblib.dump((beta_qrl, betasd_qrl, presid_qrl, mad_qrl), f"sim_data/sim_{sim_i}/{distr},theta={theta}qrl.pkl")
+
+    elif method == "lasso":
+        beta_lasso, lambda_lasso, presid_lasso, mad_lasso = [], [], [], []
+        for sim in range(1, n_sim + 1):
+            print(f"This is simulation number {sim}")
+
+            # Load data
+            data = joblib.load(f"sim_data/sim_{sim_i}/{distr},theta={theta},sim{sim}.pkl")
+            x_train, x_validation, x_test, y_train, y_validation, beta_true = data
+
+            # Fit LASSO model (example with sklearn)
+            from sklearn.linear_model import LassoCV
+            lasso = LassoCV(cv=5).fit(x_train, y_train)
+
+            beta_lasso.append(lasso.coef_)
+            lambda_lasso.append(lasso.alpha_)
+            presid_lasso.append(np.mean((beta_true - lasso.coef_) ** 2))
+            mad_lasso.append(np.mean(np.abs(x_test @ (beta_true - lasso.coef_))))
+
+        joblib.dump((beta_lasso, lambda_lasso, presid_lasso, mad_lasso), f"sim_data/sim_{sim_i}/{distr},theta={theta}lasso.pkl")
+
+
+
 
 
 ################################################################################################################
