@@ -4,7 +4,8 @@
 # Modification 2: changed the dataset for something not deprecated
 # Modification 3: using pymc instead of pymc3
 # Modification 4: solved a problem with the pickles
-
+# Modification 5: Our examples are now based on simulation 1
+# Modification 6: 1. and 2. were checked and I added the return to be x, beta_true
 
 
 # Comment 1: The group-lasso approach is only approximate. A full Bayesian group-lasso might require specialized “multivariate normal” draws.
@@ -1094,13 +1095,13 @@ def process_real_data():
 # ---------------------------------
 if __name__ == "__main__":
     print("Running data generation...")
-    generate_data(2)
+    generate_data(1)
     
     print("Running analysis...")
-    perform_analysis(2)
+    perform_analysis(1)
     
     print("Processing results...")
-    process_results(2)
+    process_results(1)
     
     print("Processing real data...")
     process_real_data()
