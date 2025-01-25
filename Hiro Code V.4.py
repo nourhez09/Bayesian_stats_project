@@ -6,7 +6,7 @@
 # Modification 4: solved a problem with the pickles
 # Modification 5: Our examples are now based on simulation 1
 # Modification 6: 1. and 2. were checked and I added the return to be x, beta_true
-
+# Modification 7: 3. checked
 
 # Comment 1: The group-lasso approach is only approximate. A full Bayesian group-lasso might require specialized “multivariate normal” draws.
 
