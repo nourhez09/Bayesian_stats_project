@@ -8,9 +8,7 @@
 # Modification 6: 1. and 2. were checked and I added the return to be x, beta_true
 # Modification 7: 3. checked
 # Modification 8: I am changing the order of 4. and 5. because 4 uses functions from 5
-# Modification 9: probably 5. does not matter, it was defined on 1.
-# Modification 10: Creating 4.1., where it does the non-iid version. Probably not that important, it was not done in the R code, just imported...
-# Modification 11: Changing the order of 6. and 7. it has a function we need.
+
 
 # Comment 1: The group-lasso approach is only approximate. A full Bayesian group-lasso might require specialized “multivariate normal” draws.
 
@@ -942,465 +940,6 @@ def sim_iid(method, n_sim, sim_i, distr, theta, x_train, x_validation, x_test, y
 
         joblib.dump((beta_lasso, lambda_lasso, presid_lasso, mad_lasso), f"sim_data/sim_{sim_i}/{distr},theta={theta}lasso.pkl")
 
-##########################################################################################################################################
-
-#%%
-# 4.1. [NON.IID.R]
-import os
-import numpy as np
-import joblib  # for loading/saving the data
-# Placeholder imports for your custom or library-based functions:
-# from your_module import qr_lasso, qr_enet, LARSLV, ENLV, qrL1V, check, posterior_mode
-# from your_mcmc_module import mcmc
-
-###############################################################################
-# DATA GENERATION
-###############################################################################
-def data_generation_case4():
-    """
-    Python translation of the R data generation snippet for sim.i = 4,
-    looping over theta in [0.25, 0.5, 0.75], sim in 1..100.
-
-    Differences from earlier examples:
-    1) We'll assume we have x.train, x.validation, x.test, x, beta.true, etc.
-       after calling some 'datagen_x.py' or similar code. We just demonstrate
-       the loop logic and saving with joblib.
-    2) We'll replicate R's 'load(...)', 'save(...)' logic with Python's joblib.
-    3) We'll highlight the usage of 'mean = -qnorm(theta)' replaced by
-       'mean = -scipy.stats.norm.ppf(theta)'.
-    """
-    import math
-    from scipy.stats import norm
-
-    # For demonstration, assume the code that sets x.train, x.validation, etc. is in "datagen_x_case4"
-    # We'll do placeholders:
-    def load_datagen_x_case4():
-        # load or generate x.train, x.validation, x.test, x, beta.true
-        n_train, n_validation, n_test, p = 100, 100, 400, 9
-        # placeholders:
-        x_train = np.random.normal(size=(n_train, p))
-        x_validation = np.random.normal(size=(n_validation, p))
-        x_test = np.random.normal(size=(n_test, p))
-        x = np.vstack([x_train, x_validation, x_test])
-        beta_true = np.array([1,1,1,1,0,0,0,0,0])
-        return x_train, x_validation, x_test, x, beta_true
-
-    sim_i = 4
-    for theta in [0.25, 0.5, 0.75]:
-        # in R: source("code\\datagen_x.R"), do x.train, x.validation, ...
-        x_train, x_validation, x_test, x, beta_true = load_datagen_x_case4()
-
-        for sim in range(1, 101):
-            print(f"Generating data for sim_i={sim_i}, theta={theta}, sim={sim}")
-            mean_ = -norm.ppf(theta)  # replaced qnorm in R
-            # y.train = x.train %*% beta.true + (1 + x.train[,4]) * rnorm(n.train,mean=mean)
-            # We'll interpret x.train[:, 3] as x.train[,4] in 1-based R indexing
-            y_train = x_train @ beta_true + (1.0 + x_train[:,3]) * np.random.normal(loc=mean_, scale=1.0, size=len(x_train))
-            y_validation = x_validation @ beta_true + (1.0 + x_validation[:,3]) * np.random.normal(loc=mean_, scale=1.0, size=len(x_validation))
-            y_test = x_test @ beta_true + (1.0 + x_test[:,3]) * np.random.normal(loc=mean_, scale=1.0, size=len(x_test))
-
-            y = np.concatenate([y_train, y_validation, y_test])
-
-            # Save the data
-            # In R: save(..., file = paste("sim data\\sim_", sim.i, "\\theta=", theta, "sim", sim, ".Rdata"))
-            # In Python: joblib.dump(...) with a .pkl extension, or similar
-            save_path = f"sim_data/sim_{sim_i}/theta_{theta}_sim_{sim}.pkl"
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            joblib.dump({
-                'x_train': x_train,
-                'x_validation': x_validation,
-                'x_test': x_test,
-                'x': x,
-                'y_train': y_train,
-                'y_validation': y_validation,
-                'y_test': y_test,
-                'y': y,
-                'beta_true': beta_true
-            }, save_path)
-
-
-###############################################################################
-# DATA ANALYSIS
-###############################################################################
-def data_analysis_case4():
-    """
-    Python translation of the R snippet for analyzing data with
-    qr.lasso, qr.enet, lars, enet, qr, qrL1, etc.
-    Differences from earlier code:
-    1) We do joblib.load(...) instead of load(...)
-    2) We store results as arrays with shape (n_samples, p+something) or so
-    3) We highlight the usage of posterior_mode(mcmc(...)) as a placeholder
-    """
-    import os
-
-    # Placeholders for your actual functions:
-    # from your_module import qr_lasso, qr_enet, LARSLV, ENLV, check, qrL1V
-    # from your_qr_module import rq  # if you have a Python rq version
-    # from your_mcmc_module import mcmc, posterior_mode
-    def posterior_mode(samples):
-        # placeholder
-        return np.mean(samples, axis=0)
-
-    def mcmc(array_2d):
-        # placeholder
-        return array_2d
-
-    n_sim = 100
-    sim_i = 4
-
-    # --- qr.lasso
-    for theta in [0.25, 0.5, 0.75]:
-        beta_qrl = []
-        tau_qrl = []
-        eta2_qrl = []
-        for sim in range(1, n_sim+1):
-            print(f"[qr.lasso] This is simulation number {sim}")
-            data_path = f"sim_data/sim_{sim_i}/theta_{theta}_sim_{sim}.pkl"
-            data_dict = joblib.load(data_path)
-            x_train = data_dict['x_train']
-            x_validation = data_dict['x_validation']
-            y_train = data_dict['y_train']
-            y_validation = data_dict['y_validation']
-
-            # result.qrl = qr.lasso(...)
-            # We'll do a placeholder
-            result_qrl = {
-                'beta': np.random.normal(size=(50, x_train.shape[1])),  # shape (nSamples, p)
-                'tau': np.random.normal(size=50),
-                'eta2': np.random.normal(size=50)
-            }
-
-            # we store them with sim
-            # in R: beta.qrl = rbind(beta.qrl, cbind(result.qrl$beta, sim=sim))
-            # We'll emulate
-            for row in result_qrl['beta']:
-                beta_qrl.append(np.concatenate([row, [sim]]))
-            for row in result_qrl['tau']:
-                tau_qrl.append([row, sim])
-            for row in result_qrl['eta2']:
-                eta2_qrl.append([row, sim])
-
-        save_path = f"sim_data/sim_{sim_i}/theta_{theta}_qrl.pkl"
-        joblib.dump({
-            'beta_qrl': np.array(beta_qrl),
-            'tau_qrl': np.array(tau_qrl),
-            'eta2_qrl': np.array(eta2_qrl)
-        }, save_path)
-
-    # --- qr.enet
-    for theta in [0.25, 0.5, 0.75]:
-        beta_qren = []
-        tau_qren = []
-        eta2_qren = []
-        teta1_qren = []
-        for sim in range(1, n_sim+1):
-            print(f"[qr.enet] This is simulation number {sim}")
-            data_path = f"sim_data/sim_{sim_i}/theta_{theta}_sim_{sim}.pkl"
-            data_dict = joblib.load(data_path)
-            x_train = data_dict['x_train']
-            x_validation = data_dict['x_validation']
-            y_train = data_dict['y_train']
-            y_validation = data_dict['y_validation']
-
-            # result.qren = qr.enet(...)
-            result_qren = {
-                'beta': np.random.normal(size=(50, x_train.shape[1])),
-                'tau': np.random.normal(size=50),
-                'eta2': np.random.normal(size=50),
-                'teta1': np.random.normal(size=50),
-            }
-
-            for row in result_qren['beta']:
-                beta_qren.append(np.concatenate([row, [sim]]))
-            for row in result_qren['tau']:
-                tau_qren.append([row, sim])
-            for row in result_qren['eta2']:
-                eta2_qren.append([row, sim])
-            for row in result_qren['teta1']:
-                teta1_qren.append([row, sim])
-
-        save_path = f"sim_data/sim_{sim_i}/theta_{theta}_qren.pkl"
-        joblib.dump({
-            'beta_qren': np.array(beta_qren),
-            'tau_qren': np.array(tau_qren),
-            'eta2_qren': np.array(eta2_qren),
-            'teta1_qren': np.array(teta1_qren)
-        }, save_path)
-
-    # --- lars
-    for theta in [0.25, 0.5, 0.75]:
-        # We'll get beta.true from a list
-        # We mimic R: beta.true = list(...)[[sim.i]]
-        # For sim.i=4, that means c(1,1,1,1,0,0,0,0,0)
-        beta_true = np.array([1,1,1,1,0,0,0,0,0])
-        beta_lars = []
-        lambda_lars = []
-        presid_lars = []
-        mad_lars = []
-        check_lars = []
-
-        for sim in range(1, n_sim+1):
-            data_path = f"sim_data/sim_{sim_i}/theta_{theta}_sim_{sim}.pkl"
-            data_dict = joblib.load(data_path)
-            x_train = data_dict['x_train']
-            y_train = data_dict['y_train']
-            x_validation = data_dict['x_validation']
-            y_validation = data_dict['y_validation']
-            x_test = data_dict['x_test']
-            y_test = data_dict['y_test']
-
-            # result.lars = LARSLV(...)
-            result_lars = {
-                'beta': np.random.normal(size=len(beta_true)),
-                's': np.random.rand(),
-                'err': np.random.rand()
-            }
-            beta_est = result_lars['beta']
-            beta_lars.append(beta_est)
-            lambda_lars.append(result_lars['s'])
-            presid_lars.append(np.mean((beta_true - beta_est)**2))
-            mad_lars.append(np.mean(np.abs(x_test @ (beta_true - beta_est))))
-            # check.lars = mean(check(y.test - x.test %*% result.lars$beta, theta))
-            # We'll do a placeholder check function:
-            def check_func(resid, th):
-                return np.where(resid>0, resid*th, resid*(th-1))
-            check_lars.append(np.mean(check_func(y_test - x_test@beta_est, theta)))
-
-        save_path = f"sim_data/sim_{sim_i}/theta_{theta}_lars.pkl"
-        joblib.dump({
-            'beta_lars': np.array(beta_lars),
-            'lambda_lars': np.array(lambda_lars),
-            'presid_lars': np.array(presid_lars),
-            'mad_lars': np.array(mad_lars),
-            'check_lars': np.array(check_lars)
-        }, save_path)
-
-    # --- enet
-    for theta in [0.25, 0.5, 0.75]:
-        beta_true = np.array([1,1,1,1,0,0,0,0,0])
-        beta_en = []
-        lambda_en = []
-        presid_en = []
-        mad_en = []
-        check_en = []
-
-        for sim in range(1, n_sim+1):
-            data_path = f"sim_data/sim_{sim_i}/theta_{theta}_sim_{sim}.pkl"
-            data_dict = joblib.load(data_path)
-            x_train = data_dict['x_train']
-            y_train = data_dict['y_train']
-            x_validation = data_dict['x_validation']
-            y_validation = data_dict['y_validation']
-            x_test = data_dict['x_test']
-            y_test = data_dict['y_test']
-
-            # x.train.temp = x.train
-            # x.train.temp[,1] = x.train.temp[,1] + ...
-            x_train_temp = x_train.copy()
-            x_train_temp[:,0] = x_train_temp[:,0] + np.random.normal(scale=1e-4, size=len(x_train_temp))
-
-            # result.en = ENLV(...)
-            result_en = {
-                'beta': np.random.normal(size=len(beta_true)),
-                's': np.random.rand(),
-                'lambda2': np.random.rand(),
-                'err': np.random.rand()
-            }
-            beta_est = result_en['beta']
-            beta_en.append(beta_est)
-            lambda_en.append([result_en['s'], result_en['lambda2']])
-            presid_en.append(np.mean((beta_true - beta_est)**2))
-            mad_en.append(np.mean(np.abs(x_test@(beta_true - beta_est))))
-            def check_func(resid, th):
-                return np.where(resid>0, resid*th, resid*(th-1))
-            check_en.append(np.mean(check_func(y_test - x_test@beta_est, theta)))
-
-        save_path = f"sim_data/sim_{sim_i}/theta_{theta}_en.pkl"
-        joblib.dump({
-            'beta_en': np.array(beta_en),
-            'lambda_en': np.array(lambda_en),
-            'presid_en': np.array(presid_en),
-            'mad_en': np.array(mad_en),
-            'check_en': np.array(check_en)
-        }, save_path)
-
-    # --- qr
-    for theta in [0.25, 0.5, 0.75]:
-        beta_true = np.array([1,1,1,1,0,0,0,0,0])
-        beta_qr = []
-        presid_qr = []
-        mad_qr = []
-        check_qr = []
-
-        for sim in range(1, n_sim+1):
-            data_path = f"sim_data/sim_{sim_i}/theta_{theta}_sim_{sim}.pkl"
-            data_dict = joblib.load(data_path)
-            x_train = data_dict['x_train']
-            x_validation = data_dict['x_validation']
-            x_test = data_dict['x_test']
-            y_train = data_dict['y_train']
-            y_validation = data_dict['y_validation']
-            y_test = data_dict['y_test']
-
-            # In R: result.qr = rq(...)
-            # We'll do a placeholder:
-            # result.qr$coef => a vector
-            # We'll guess p=9. We'll do shape 9
-            coef_ = np.random.normal(size=len(beta_true))
-            beta_qr.append(coef_)
-            presid_qr.append(np.mean((beta_true - coef_)**2))
-            mad_qr.append(np.mean(np.abs(x_test@(beta_true - coef_))))
-            def check_func(resid, th):
-                return np.where(resid>0, resid*th, resid*(th-1))
-            check_qr.append(np.mean(check_func(y_test - x_test@coef_, theta)))
-
-        save_path = f"sim_data/sim_{sim_i}/theta_{theta}_qr.pkl"
-        joblib.dump({
-            'beta_qr': np.array(beta_qr),
-            'presid_qr': np.array(presid_qr),
-            'mad_qr': np.array(mad_qr),
-            'check_qr': np.array(check_qr)
-        }, save_path)
-
-    # --- qrL1
-    for theta in [0.25, 0.5, 0.75]:
-        beta_true = np.array([1,1,1,1,0,0,0,0,0])
-        beta_qrL1 = []
-        beta0_qrL1 = []
-        presid_qrL1 = []
-        mad_qrL1 = []
-        check_qrL1 = []
-
-        for sim in range(1, n_sim+1):
-            data_path = f"sim_data/sim_{sim_i}/theta_{theta}_sim_{sim}.pkl"
-            data_dict = joblib.load(data_path)
-            x_train = data_dict['x_train']
-            y_train = data_dict['y_train']
-            x_validation = data_dict['x_validation']
-            y_validation = data_dict['y_validation']
-            x_test = data_dict['x_test']
-            y_test = data_dict['y_test']
-
-            # result.qrL1 = qrL1V(...)
-            # This typically returns beta0, beta
-            result_qrL1 = {
-                'beta0': np.random.rand(),
-                'beta': np.random.normal(size=len(beta_true)-1)
-            }
-            # We'll reconstruct fullBeta for comparison
-            fullBeta_est = np.concatenate([[result_qrL1['beta0']], result_qrL1['beta']])
-            beta_qrL1.append(result_qrL1['beta'])
-            beta0_qrL1.append(result_qrL1['beta0'])
-            presid_qrL1.append(np.mean((beta_true - fullBeta_est)**2))
-            mad_qrL1.append(np.mean(np.abs(x_test@(beta_true - fullBeta_est))))
-            def check_func(resid, th):
-                return np.where(resid>0, resid*th, resid*(th-1))
-            check_qrL1.append(np.mean(check_func(y_test - x_test@fullBeta_est, theta)))
-
-        save_path = f"sim_data/sim_{sim_i}/theta_{theta}_qrL1.pkl"
-        joblib.dump({
-            'beta_qrL1': np.array(beta_qrL1),
-            'beta0_qrL1': np.array(beta0_qrL1),
-            'presid_qrL1': np.array(presid_qrL1),
-            'mad_qrL1': np.array(mad_qrL1),
-            'check_qrL1': np.array(check_qrL1)
-        }, save_path)
-
-###############################################################################
-# DATA SUMMARY
-###############################################################################
-def data_summary_case4():
-    """
-    Python translation of the final summary loops.
-    We do bootstrap sampling via numpy.random.choice, etc.
-    Differences:
-    1) Use joblib.load to get .pkl data
-    2) sample(...) replaced with np.random.choice
-    3) data.frame => we might build a small pandas DataFrame at the end
-    """
-    import pandas as pd
-
-    n_sim = 100
-    sim_i = 4
-    for theta in [0.25, 0.5, 0.75]:
-        # in R: pick correct beta.true from a list
-        # for sim_i=4 => c(1,1,1,1,0,0,0,0,0)
-        beta_true = np.array([1,1,1,1,0,0,0,0,0])
-
-        #----------------------------------
-        # qr.lasso
-        #----------------------------------
-        # load the big chunk of results
-        qrl_path = f"sim_data/sim_{sim_i}/theta_{theta}_qrl.pkl"
-        if not os.path.isfile(qrl_path):
-            print(f"File not found: {qrl_path}, skipping.")
-            continue
-        qrl_data = joblib.load(qrl_path)
-        beta_qrl = qrl_data['beta_qrl']  # shape (..., p+1) last col is sim
-
-        # We'll create arrays to store final per-sim measures
-        presid_qrl = []
-        mad_qrl = []
-        check_qrl = []
-
-        for sim in range(1, n_sim+1):
-            sim_mask = (beta_qrl[:, -1] == sim)
-            # we get the subset
-            subset_beta = beta_qrl[sim_mask, :-1]  # all rows for this sim
-            # posterior mode of subset
-            # in R: beta.est = posterior.mode(mcmc(subset_beta))
-            # placeholder => we do a simple mean
-            beta_est = np.mean(subset_beta, axis=0)
-            # We need to load the data to compute x.test, y.test
-            data_path = f"sim_data/sim_{sim_i}/theta_{theta}_sim_{sim}.pkl"
-            data_dict = joblib.load(data_path)
-            x_test = data_dict['x_test']
-            y_test = data_dict['y_test']
-
-            # measure
-            presid_qrl.append(np.mean((beta_true - beta_est)**2))
-            mad_qrl.append(np.mean(np.abs(x_test@(beta_true - beta_est))))
-            # check
-            def check_func(resid, th):
-                return np.where(resid>0, resid*th, resid*(th-1))
-            check_qrl.append(np.mean(check_func(y_test - x_test@beta_est, theta)))
-
-        # now do the bootstraps for median
-        rng = np.random.default_rng(1234)
-        def bootstrap_median(data, B=500):
-            medians = []
-            N = len(data)
-            for _ in range(B):
-                sample_idx = rng.integers(low=0, high=N, size=N)
-                sample_ = data[sample_idx]
-                medians.append(np.median(sample_))
-            return np.sqrt(np.var(medians))  # we compute sqrt(var(medians))
-
-        sd_presid_qrl = bootstrap_median(np.array(presid_qrl))
-        sd_mad_qrl = bootstrap_median(np.array(mad_qrl))
-        sd_check_qrl = bootstrap_median(np.array(check_qrl))
-
-        #----------------------------------
-        # similarly for qr.enet, lars, enet, qr, qrL1
-        # we'd replicate the same pattern...
-        # ...
-        # final summary
-        temp = np.array([
-            [np.median(presid_qrl), sd_presid_qrl,
-             np.median(mad_qrl),    sd_mad_qrl,
-             np.median(check_qrl),  sd_check_qrl],
-            # ... then the other 5 methods ...
-        ])
-        # row.names = c("qr.lasso", "qr.enet", "lars", "enet", "qr", "qrL1")
-        # for demonstration, let's just do one row
-        result_sim = pd.DataFrame(temp,
-            columns=["Mpresid","sd","Mmad","sd","Mcheck","sd"],
-            index=["qr.lasso"])  # or 6 rows for the 6 methods
-        print(f"sim.i={sim_i}, theta={theta}")
-        print(result_sim)
-
-        # You would do the same for qr.enet, lars, enet, qr, qrL1, 
-        # fill in the arrays and do the same bootstrap approach.
 
 
 
@@ -1560,13 +1099,13 @@ def process_real_data():
 # ---------------------------------
 if __name__ == "__main__":
     print("Running data generation...")
-    generate_data(1)
+    generate_data(2)
     
     print("Running analysis...")
-    perform_analysis(1)
+    perform_analysis(2)
     
     print("Processing results...")
-    process_results(1)
+    process_results(2)
     
     print("Processing real data...")
     process_real_data()
@@ -1694,3 +1233,147 @@ if __name__ == "__main__":
     # Now we have a DataFrame with one row per method, columns: [beta1,...,beta5,"Mmad","sd"]
     print("Final Results:\n")
     print(results_df.round(4))
+
+################################################################################################################
+# import numpy as np
+# import matplotlib.pyplot as plt
+# from sklearn.preprocessing import StandardScaler
+# from sklearn.linear_model import LassoCV
+# from sklearn.model_selection import KFold
+
+# # Step 1: Run Simulations and Perform Analysis
+
+# def run_experiment():
+#     n_sim = 50  # Number of simulations
+#     theta_values = [0.1, 0.3, 0.5]
+#     distr_types = ["normal", "normalmix", "laplace", "laplacemix"]
+#     errors = []  # Store errors (MSE, MAE)
+#     posterior_estimates = []  # Store posterior estimates for coefficients
+
+#     # Loop through each distribution type and theta value
+#     for distr in distr_types:
+#         for theta in theta_values:
+#             for sim_i in range(2,3):  # Sim1, Sim2, Sim3
+#                 print(f"Running {distr} simulation {sim_i} with theta {theta}")
+                
+#                 # Generate the data using the `generate_data` function
+#                 # generate_data(sim_i)  # Generate data for sim_i (sim1, sim2, sim3)
+                
+#                 # Now perform analysis for the generated data
+#                 x_train, x_validation, x_test, x, y_train, y_validation, y_test, y = joblib.load(f"sim_data/sim_{sim_i}/{distr}_theta_{theta}_sim_1.pkl")
+                
+#                 # Perform the analysis using the `perform_analysis` function
+#                 scaler = StandardScaler()
+#                 x_scaled = scaler.fit_transform(np.vstack((x_train, x_validation)))
+#                 y_scaled = np.concatenate((y_train, y_validation)) - np.mean(np.concatenate((y_train, y_validation)))
+
+#                 # Fit Lasso
+#                 lasso = LassoCV(cv=5).fit(x_scaled, y_scaled)
+#                 beta_est = lasso.coef_
+
+#                 # Compute prediction errors
+#                 y_pred = x_test @ beta_est
+#                 mse = np.mean((y_test - y_pred) ** 2)
+#                 mae = np.mean(np.abs(y_test - y_pred))
+                
+#                 # Collect the errors
+#                 errors.append([mse, mae])
+
+#                 # Collect posterior estimates (coefficients)
+#                 posterior_estimates.append(beta_est)
+
+#     # Step 2: Plot Results
+
+#     # Plot Errors (MSE, MAE)
+#     plt.figure(figsize=(8, 6))
+#     errors_array = np.array(errors)
+#     plt.boxplot(errors_array.T)
+#     plt.title("Errors: MSE and MAE")
+#     plt.show()
+
+#     # Plot Posterior Distributions of Coefficients
+#     plt.figure(figsize=(8, 6))
+#     for i, posterior in enumerate(posterior_estimates):
+#         plt.hist(posterior, bins=30, alpha=0.6, label=f"Beta {i+1}")
+#     plt.title("Posterior Distributions of Coefficients")
+#     plt.legend()
+#     plt.show()
+
+# # Run the experiment
+# run_experiment()
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+def run_experiment():
+    """
+    Run the experimental section, combining data generation, analysis, and result visualization
+    for different simulations, distributions, and theta values.
+    """
+
+    # Parameters
+    simulations = [1, 2, 3]  # Sim1, Sim2, Sim3
+    distr_types = ["normal", "normalmix", "laplace", "laplacemix"]
+    theta_values = [0.1, 0.3, 0.5]
+    all_errors = []
+    all_posteriors = []
+
+    # Loop through each simulation setup
+    for sim_i in simulations:
+        for distr in distr_types:
+            for theta in theta_values:
+                print(f"Running Sim{sim_i} | Distribution: {distr} | Theta: {theta}")
+
+                # Step 1: Generate data dynamically
+                generate_data(sim_i)
+
+                # Step 2: Perform analysis using the pre-saved function
+                perform_analysis(sim_i)
+
+                # Step 3: Process results and collect posterior estimates
+                result_path = f"sim_data/sim_{sim_i}/{distr}_theta_{theta}_results.pkl"
+                beta_est = joblib.load(result_path)
+                all_posteriors.append(beta_est)
+
+                # Step 4: Compute error metrics (MSE, MAE as examples)
+                mse = np.mean(beta_est**2)  # Mean Squared Error
+                mae = np.mean(np.abs(beta_est))  # Mean Absolute Error
+                all_errors.append([sim_i, distr, theta, mse, mae])
+
+    # Convert errors to a structured numpy array for analysis
+    all_errors = np.array(all_errors, dtype=object)
+
+    # Visualization
+    plot_errors(all_errors)
+    plot_posteriors(all_posteriors)
+
+def plot_errors(all_errors):
+    """
+    Plot error metrics (MSE and MAE) using boxplots for better understanding.
+    """
+    mse_values = all_errors[:, 3].astype(float)
+    mae_values = all_errors[:, 4].astype(float)
+
+    plt.figure(figsize=(10, 6))
+    plt.boxplot([mse_values, mae_values], labels=["MSE", "MAE"], patch_artist=True)
+    plt.title("Error Metrics Across Simulations")
+    plt.ylabel("Error")
+    plt.show()
+
+def plot_posteriors(all_posteriors):
+    """
+    Plot the posterior estimates of coefficients for visual comparison.
+    """
+    plt.figure(figsize=(10, 6))
+    for i, beta in enumerate(all_posteriors):
+        plt.plot(beta, alpha=0.5, label=f"Posterior {i+1}")
+    plt.title("Posterior Estimates of Coefficients")
+    plt.xlabel("Coefficient Index")
+    plt.ylabel("Value")
+    plt.legend(loc='best', fontsize='small')
+    plt.show()
+
+if __name__ == "__main__":
+    print("Running data generation, analysis, and visualization...")
+    run_experiment()
+    print("All tasks completed.")
