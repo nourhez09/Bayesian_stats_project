@@ -1,7 +1,18 @@
 
 ################################################################################################################
 # Modification 1: adding all regularized versions to the 1. 
-# The group-lasso approach is only approximate. A full Bayesian group-lasso might require specialized “multivariate normal” draws.
+# Modification 2: changed the dataset for something not deprecated
+# Modification 3: using pymc instead of pymc3
+# Modification 4: solved a problem with the pickles
+
+
+
+# Comment 1: The group-lasso approach is only approximate. A full Bayesian group-lasso might require specialized “multivariate normal” draws.
+
+
+
+
+
 # 1. [functions.R]
 
 import numpy as np
